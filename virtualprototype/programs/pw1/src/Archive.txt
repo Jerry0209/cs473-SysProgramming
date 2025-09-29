@@ -1,0 +1,224 @@
+#include <stdio.h>
+// #include <vga.h>
+// #include <string.h>
+// #include <math.h>
+
+unsigned int utoa(
+    unsigned int number,
+    char *buf,
+    unsigned int bufsz,
+    unsigned int base,
+    const char *digits
+);
+
+int main() {
+
+    char *output_buffer[33]; // Buffer to hold the converted string (32 digits + null terminator)
+    const char *vigesimal_digits = "0123456789ABCDEFGHIJ";
+    unsigned int number = 50; // Example number to convert
+    unsigned int base = 20; // Vigesimal base
+
+    unsigned int result = utoa(number, output_buffer, sizeof(output_buffer), base, vigesimal_digits);
+    if (result > 0) {
+        printf("Conversion successful: %s\n", output_buffer);
+
+    } else {
+        printf("Conversion failed!\n");
+    }
+
+
+}
+
+/**
+ * Converts a given unsigned int number to string for the given base.
+ *
+ * @note requires (1) bufsz > 1 and (2) base > 1.
+ * @note appends NUL character at the end of the output.
+ * @note writes buf[0] = 0 in case of failure.
+ *
+ * @return int 0 in case of overflow or invalid argument, or number of
+ * written characters in case of success. (excluding NUL)
+ */
+unsigned int utoa(
+    /** number to convert */
+    unsigned int number,
+    
+    /** output buffer */
+    char *buf,
+    
+    /** size of the output buffer */
+    unsigned int bufsz,
+    
+    /** base (also the length of digits) */
+    unsigned int base,
+    
+    /** digits in the base */
+    const char *digits
+){
+    if (digits == NULL || base <= 1 || base <= 1 || strlen(digits) < base) {
+        buf[0] = 0; 
+        return 0;
+    }
+    else {
+        int required_bufsz = ceil(log(number) / log(base)) + 1; // +1 for NUL
+        // int digit_index = 0;
+        int digit_index[required_bufsz - 1]; // -1 for NUL
+
+        if (bufsz < required_bufsz) {
+            buf[0] = 0; 
+            return 0;
+        }
+        else
+        {
+            int quotient = number;
+
+            for (size_t i = 0; i < required_bufsz - 1; i++)
+            {
+                digit_index[i] = quotient % base;
+                quotient /= base;
+
+                if (quotient == 0) {
+                    break;
+            }
+
+            // Reverse the order of digit_index to get the correct order
+            for (size_t j = required_bufsz - 2; j >= 0; j--)
+            {
+                buf[required_bufsz - 2 - j] = digits[digit_index[j]];
+            }
+            buf[required_bufsz - 1] = '\0'; // Null-terminate the string
+            return required_bufsz - 1; // Return the number of characters written (excluding NUL)
+            
+        }
+        
+    }
+    
+
+
+}
+
+
+CS-473 System programming for systems on chip
+Openrisc based virtual Prototype.
+Build version: Sun Aug 10 10:55:56 AM CEST 2025
+
+I am CPU 1 of 2 running at 59.40 MHz.
+
+Known RS232 commands:
+** Start the program loaded in target
+*p Set programming mode (default)
+*v Set verification mode
+*i Show info on program in target
+*t Toggle target between SDRam (default), soft-Bios and Flash
+*m Perform simple SDRam memcheck
+*s Check SPI-flash chip
+*e Erase SPI-Flash chip
+*f Store program loaded in SDRAM to SPI-Flash
+*c Compare program loaded in SDRAM with SPI-Flash
+*r Run program stored in SPI-Flash
+*q Toggle stack pointer from SDRAM (default) with SPM
+*h This helpscreen
+
+Download: done
+Jumping to programm
+Number:   0 in base 20 is: 0
+Number:   1 in base 20 is: 1
+Number:   2 in base 20 is: 2
+Number:   3 in base 20 is: 3
+Number:   4 in base 20 is: 4
+Number:   5 in base 20 is: 5
+Number:   6 in base 20 is: 6
+Number:   7 in base 20 is: 7
+Number:   8 in base 20 is: 8
+Number:   9 in base 20 is: 9
+Number:  10 in base 20 is: A
+Number:  11 in base 20 is: B
+Number:  12 in base 20 is: C
+Number:  13 in base 20 is: D
+Number:  14 in base 20 is: E
+Number:  15 in base 20 is: F
+Number:  16 in base 20 is: G
+Number:  17 in base 20 is: H
+Number:  18 in base 20 is: I
+Number:  19 in base 20 is: J
+Number:  20 in base 20 is: 10
+Number:  21 in base 20 is: 11
+Number:  22 in base 20 is: 12
+Number:  23 in base 20 is: 13
+Number:  24 in base 20 is: 14
+Number:  25 in base 20 is: 15
+Number:  26 in base 20 is: 16
+Number:  27 in base 20 is: 17
+Number:  28 in base 20 is: 18
+Number:  29 in base 20 is: 19
+Number:  30 in base 20 is: 1A
+Number:  31 in base 20 is: 1B
+Number:  32 in base 20 is: 1C
+Number:  33 in base 20 is: 1D
+Number:  34 in base 20 is: 1E
+Number:  35 in base 20 is: 1F
+Number:  36 in base 20 is: 1G
+Number:  37 in base 20 is: 1H
+Number:  38 in base 20 is: 1I
+Number:  39 in base 20 is: 1J
+Number:  40 in base 20 is: 20
+Number:  41 in base 20 is: 21
+Number:  42 in base 20 is: 22
+Number:  43 in base 20 is: 23
+Number:  44 in base 20 is: 24
+Number:  45 in base 20 is: 25
+Number:  46 in base 20 is: 26
+Number:  47 in base 20 is: 27
+Number:  48 in base 20 is: 28
+Number:  49 in base 20 is: 29
+Number:  50 in base 20 is: 2A
+Number:  51 in base 20 is: 2B
+Number:  52 in base 20 is: 2C
+Number:  53 in base 20 is: 2D
+Number:  54 in base 20 is: 2E
+Number:  55 in base 20 is: 2F
+Number:  56 in base 20 is: 2G
+Number:  57 in base 20 is: 2H
+Number:  58 in base 20 is: 2I
+Number:  59 in base 20 is: 2J
+Number:  60 in base 20 is: 30
+Number:  61 in base 20 is: 31
+Number:  62 in base 20 is: 32
+Number:  63 in base 20 is: 33
+Number:  64 in base 20 is: 34
+Number:  65 in base 20 is: 35
+Number:  66 in base 20 is: 36
+Number:  67 in base 20 is: 37
+Number:  68 in base 20 is: 38
+Number:  69 in base 20 is: 39
+Number:  70 in base 20 is: 3A
+Number:  71 in base 20 is: 3B
+Number:  72 in base 20 is: 3C
+Number:  73 in base 20 is: 3D
+Number:  74 in base 20 is: 3E
+Number:  75 in base 20 is: 3F
+Number:  76 in base 20 is: 3G
+Number:  77 in base 20 is: 3H
+Number:  78 in base 20 is: 3I
+Number:  79 in base 20 is: 3J
+Number:  80 in base 20 is: 40
+Number:  81 in base 20 is: 41
+Number:  82 in base 20 is: 42
+Number:  83 in base 20 is: 43
+Number:  84 in base 20 is: 44
+Number:  85 in base 20 is: 45
+Number:  86 in base 20 is: 46
+Number:  87 in base 20 is: 47
+Number:  88 in base 20 is: 48
+Number:  89 in base 20 is: 49
+Number:  90 in base 20 is: 4A
+Number:  91 in base 20 is: 4B
+Number:  92 in base 20 is: 4C
+Number:  93 in base 20 is: 4D
+Number:  94 in base 20 is: 4E
+Number:  95 in base 20 is: 4F
+Number:  96 in base 20 is: 4G
+Number:  97 in base 20 is: 4H
+Number:  98 in base 20 is: 4I
+Number:  99 in base 20 is: 4J
+Number: 100 in base 20 is: 50
