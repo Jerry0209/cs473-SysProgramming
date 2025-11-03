@@ -37,7 +37,9 @@ int main() {
    perf_init();
    perf_set_mask(PERF_COUNTER_0, PERF_STALL_CYCLES_MASK | PERF_ICACHE_NOP_INSERTION_MASK);
    perf_set_mask(PERF_COUNTER_1, PERF_BUS_IDLE_MASK);
-   perf_memdist_set(0);
+   perf_set_mask(PERF_COUNTER_2, PERF_INSTRUCTION_FETCH_MASK);
+   perf_set_mask(PERF_COUNTER_3, PERF_ICACHE_MISS_MASK);
+   perf_memdist_set(63); // Change the memory distance
 #endif
    /* Enable the vga-controller's graphic mode */
    vga[0] = swap_u32(SCREEN_WIDTH);
@@ -56,9 +58,13 @@ int main() {
    perf_print_cycles(PERF_COUNTER_0, "Stall cycles    ");
    perf_print_cycles(PERF_COUNTER_1, "Bus idle cycles ");
    perf_print_cycles(PERF_COUNTER_RUNTIME, "Runtime cycles  ");
+   perf_print_cycles(PERF_COUNTER_2, "I-Cache fetches "); 
+   perf_print_cycles(PERF_COUNTER_3, "I-Cache misses  ");
    perf_print_time(PERF_COUNTER_0, "Stall time    ");
    perf_print_time(PERF_COUNTER_1, "Bus idle time ");
    perf_print_time(PERF_COUNTER_RUNTIME, "Runtime      ");
+   // perf_print_time(PERF_COUNTER_2, "Instructions ");
+   // perf_print_time(PERF_COUNTER_3, "I-Cache misses  ");
    dcache_flush();
 #endif
 }
