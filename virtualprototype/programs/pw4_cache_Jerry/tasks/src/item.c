@@ -50,7 +50,7 @@ void items_init(item_t* items, size_t log2n) {
     }
 }
 
-item_t* items_find(item_t* items, size_t log2n, unsigned id) {
+item_t* items_find(item_t* items, size_t log2n, unsigned id) { // only use item.id! but each fecthing requires a new cache block (36 > 32)
     // YOU ARE NOT SUPPOSED TO MODIFY THIS.
     for (size_t i = 0; i < (1 << log2n); ++i) {
         if (items[i].id == id)
@@ -62,6 +62,8 @@ item_t* items_find(item_t* items, size_t log2n, unsigned id) {
 void item_init(item_t* item, uint32_t id, const char* data) {
     // YOU CAN MODIFY THIS.
     item->id = id;
+
+    item->data = (char*)alloc(ITEM_DATALEN);
 
     if (data != NULL)
         memcpy(item->data, data, ITEM_DATALEN);

@@ -24,6 +24,9 @@
 #define PACKED
 #endif
 
+// If PARAM_PACKED is defined, then PACKED becomes __packed (i.e., packed attribute).
+// If not, PACKED is empty (does nothing).
+
 #ifndef PARAM_DESC
 #define PARAM_DESC "None"
 #endif

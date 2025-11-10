@@ -4,7 +4,7 @@ TOOLCHAIN ?= or1k-elf
 DEBUG ?= 0
 # TARGET can be either OR1300 (CS-473) or OR1420 (CS-476)
 TARGET ?= OR1300
-CFLAGS ?=
+CFLAGS ?= -save-temps
 LDFLAGS ?=
 ASFLAGS ?=
 

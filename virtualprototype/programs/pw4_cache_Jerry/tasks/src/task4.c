@@ -21,7 +21,8 @@
 void init_dcache() {
     // YOU CAN MODIFY THIS.
     dcache_enable(0);
-    dcache_write_cfg(CACHE_FOUR_WAY | CACHE_SIZE_4K | CACHE_REPLACE_LRU | CACHE_WRITE_BACK);
+    // dcache_write_cfg(CACHE_FOUR_WAY | CACHE_SIZE_4K | CACHE_REPLACE_LRU | CACHE_WRITE_BACK);
+    dcache_write_cfg(CACHE_FOUR_WAY | CACHE_SIZE_4K | CACHE_REPLACE_LRU | CACHE_WRITE_THROUGH);
     dcache_enable(1);
 }
 
@@ -62,6 +63,7 @@ void bouncing_ball() {
         xpos += xdir;
         index = ypos * 12 + xpos;
         leds[index] = swap_u32(2);
+        // dcache_flush();
         for (volatile long i = 0; i < 100000; i++)
             ;
     }

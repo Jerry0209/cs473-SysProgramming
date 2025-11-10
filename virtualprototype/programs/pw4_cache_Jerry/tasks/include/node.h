@@ -15,19 +15,34 @@ typedef struct node_t node_t;
  * @brief Defines a node.
  * @note **Do not remove** any fields from this structure.
  */
+
 struct node_t {
     /** @brief Node ID. */
-    unsigned id;
-
-    /** @brief Node data. */
-    char data[NODE_DATALEN];
+    unsigned id; // accessed in one cache block
 
     /** @brief The next node. */
-    node_t* next;
+    node_t* next; // accessed in one cache block
 
     /** @brief The previous node. */
     node_t* prev;
+
+    /** @brief Node data. */
+    char data[NODE_DATALEN]; // 52 bytes
 };
+
+// struct node_t {
+//     /** @brief Node ID. */
+//     unsigned id;
+
+//     /** @brief Node data. */
+//     char data[NODE_DATALEN]; // 52 bytes
+
+//     /** @brief The next node. */
+//     node_t* next;
+
+//     /** @brief The previous node. */
+//     node_t* prev;
+// };
 
 /**
  * @brief Initializes the nodes randomly.

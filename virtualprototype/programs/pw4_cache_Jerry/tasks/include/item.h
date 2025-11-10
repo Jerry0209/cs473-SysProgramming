@@ -17,10 +17,12 @@ typedef struct item_t item_t;
  */
 struct item_t {
     /** @brief Item ID. */
-    unsigned id;
+    unsigned id; // 4 bytes
 
     /** @brief Item data. */
-    char data[ITEM_DATALEN];
+    // char data[ITEM_DATALEN]; // 32 bytes
+
+    char* data; // if we only store the pointer to data (4 bytes)
 };
 
 /**

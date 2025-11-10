@@ -6,7 +6,7 @@
 
 #define MATRIX_N 256
 
-typedef int32_t elem_t;
+typedef int32_t elem_t; // Define our Element Type
 
 // identity matrix
 static elem_t (*matrix)[MATRIX_N];
@@ -49,12 +49,22 @@ static void init() {
 static void multiply() {
     // YOU CAN MODIFY THIS.
 
-    for (int j = 0; j < MATRIX_N; ++j) {
-        for (int i = 0; i < MATRIX_N; ++i) {
+    for (int i = 0; i < MATRIX_N; ++i) {
+        for (int j = 0; j < MATRIX_N; ++j) {
             out_vector[i] += matrix[i][j] * in_vector[j];
         }
     }
 }
+
+// static void multiply() {
+//     // YOU CAN MODIFY THIS.
+
+//     for (int j = 0; j < MATRIX_N; ++j) {
+//         for (int i = 0; i < MATRIX_N; ++i) {
+//             out_vector[i] += matrix[i][j] * in_vector[j];
+//         }
+//     }
+// }
 
 static void verify() {
     // YOU ARE NOT SUPPOSED TO MODIFY THIS.

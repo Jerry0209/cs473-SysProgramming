@@ -10,10 +10,12 @@
  * @brief Item struct.
  *
  */
-typedef struct PACKED {
+typedef struct PACKED { // tells the compiler pack the struct or not
     uint32_t id;
     char data[PARAM_DATALEN];
 } item_t;
+
+
 
 static item_t items[PARAM_COUNT];
 
