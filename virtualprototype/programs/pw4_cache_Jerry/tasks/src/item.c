@@ -63,6 +63,8 @@ void item_init(item_t* item, uint32_t id, const char* data) {
     // YOU CAN MODIFY THIS.
     item->id = id;
 
+    // Method: seperate 'hot' and 'code' data by using alloc function (only store pointer in the struct)
+
     item->data = (char*)alloc(ITEM_DATALEN);
 
     if (data != NULL)

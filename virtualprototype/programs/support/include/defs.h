@@ -34,11 +34,11 @@
  */
 #define __packed __attribute__((packed))
 
-// #define 是预处理指令，用于定义宏。
-// __packed 是宏的名字。
-// __attribute__((packed)) 是 GCC 编译器的一个扩展，用于告诉编译器：
+// #define is a preprocessor directive used to define macros.
+// __packed is the name of the macro.
+// __attribute__((packed)) is a GCC compiler extension that tells the compiler:
+// "Do not perform alignment optimization for struct members; arrange them in the most compact way."
 
-// “不要对结构体成员进行对齐优化，按最紧凑的方式排列。”
 // It's built into the GCC compiler itself — not stored in a header file or external library.
 // When you compile code with GCC, 
 // the compiler recognizes __attribute__ as a keyword 

@@ -18,6 +18,7 @@ typedef struct node_t node_t;
 
 struct node_t {
     /** @brief Node ID. */
+    // Method: Fields Reordering, put id and pointer *next in front
     unsigned id; // accessed in one cache block
 
     /** @brief The next node. */

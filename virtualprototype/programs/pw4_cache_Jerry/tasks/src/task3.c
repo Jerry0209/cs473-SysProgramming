@@ -48,7 +48,7 @@ static void init() {
  */
 static void multiply() {
     // YOU CAN MODIFY THIS.
-
+    // Method: Loop Interchange
     for (int i = 0; i < MATRIX_N; ++i) {
         for (int j = 0; j < MATRIX_N; ++j) {
             out_vector[i] += matrix[i][j] * in_vector[j];
