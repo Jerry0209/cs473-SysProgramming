@@ -1,0 +1,6 @@
+# 构建目录
+build-release-or1300/
+.DS_Store
+.vscode/.DS_Store
+.vscode/
+build*/
