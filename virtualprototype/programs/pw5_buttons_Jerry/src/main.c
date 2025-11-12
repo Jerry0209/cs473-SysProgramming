@@ -49,6 +49,7 @@ int main() {
   perf_init();
 
   volatile unsigned int *vga = (unsigned int *) 0X50000020;
+  volatile uint32_t *switches = (uint32_t *) SWITCHES_BASE_ADDRESS;
 
   vga_clear();
 
@@ -57,12 +58,48 @@ int main() {
   vga[1] = swap_u32(SCREEN_HEIGHT);
   vga[3] = swap_u32((unsigned int)&frameBuffer[0]); // disable the vga controller by commenting this line
 
+  /* Interrupt SR */
+  
+
   delta = FRAC_WIDTH / SCREEN_WIDTH;
   cxOff = 0;
   cyOff = 0;
   redraw = 1;
 
+  uint32_t dip_switch_old = 0;
+  uint32_t joystick_button_old = 0;
+  uint32_t dip_switch_new = 0;
+  uint32_t joystick_button_new = 0;
+  uint32_t read_clear_dip_switch = 0;
+
   do {
+
+    // Polling
+
+    // dip_switch_new = switches[DIP_SWITCH_STATE_ID];
+    // joystick_button_new = switches[BUTTONS_STATE_ID];
+
+    // if (dip_switch_new != dip_switch_old)
+    // {
+    //   dip_switch_old = dip_switch_new;
+    //   printf("%#x", dip_switch_new);
+    // }
+
+    // if (joystick_button_new != joystick_button_old)
+    // {
+    //   joystick_button_old = joystick_button_new;
+    //   printf("%#x", joystick_button_new);
+    // }
+    
+    // printf("%u", dip_switch_new);
+    // printf("%#x", dip_switch_new);
+    // printf("%#x", joystick_button_new);
+
+    // Interrupt
+    read_clear_dip_switch = switches[DIP_SWITCH_PRESSED_IRQ_ID];
+
+    printf("%#x", read_clear_dip_switch);
+    
     if (redraw == 1) {
       redraw = 0;
       drawFractal(frameBuffer);
