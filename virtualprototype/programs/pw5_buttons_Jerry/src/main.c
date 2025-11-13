@@ -76,29 +76,29 @@ int main() {
 
     // Polling
 
-    // dip_switch_new = switches[DIP_SWITCH_STATE_ID];
-    // joystick_button_new = switches[BUTTONS_STATE_ID];
+    dip_switch_new = switches[DIP_SWITCH_STATE_ID];
+    joystick_button_new = switches[BUTTONS_STATE_ID];
 
-    // if (dip_switch_new != dip_switch_old)
-    // {
-    //   dip_switch_old = dip_switch_new;
-    //   printf("%#x", dip_switch_new);
-    // }
+    if (dip_switch_new != dip_switch_old)
+    {
+      dip_switch_old = dip_switch_new;
+      printf("%#x", dip_switch_new);
+    }
 
-    // if (joystick_button_new != joystick_button_old)
-    // {
-    //   joystick_button_old = joystick_button_new;
-    //   printf("%#x", joystick_button_new);
-    // }
+    if (joystick_button_new != joystick_button_old)
+    {
+      joystick_button_old = joystick_button_new;
+      printf("%#x", joystick_button_new);
+    }
     
-    // printf("%u", dip_switch_new);
-    // printf("%#x", dip_switch_new);
-    // printf("%#x", joystick_button_new);
+    printf("%u", dip_switch_new);
+    printf("%#x", dip_switch_new);
+    printf("%#x", joystick_button_new);
 
     // Interrupt
-    read_clear_dip_switch = switches[DIP_SWITCH_PRESSED_IRQ_ID];
+    // read_clear_dip_switch = switches[DIP_SWITCH_PRESSED_IRQ_ID];
 
-    printf("%#x", read_clear_dip_switch);
+    // printf("%#x", read_clear_dip_switch);
     
     if (redraw == 1) {
       redraw = 0;
