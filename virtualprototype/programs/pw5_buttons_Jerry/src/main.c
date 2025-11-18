@@ -27,6 +27,17 @@
 #define IRQ_BTN        (1 << 3)  // Buttons and Joystick Enable IRQ bit 3
 #define SR_IEE              (1 << 2)  // Interrupt Exception Enable bit inside SR!! I wrongly set this to 1<<3 before, then it did not work!!
 
+// switches.h content
+// #define SWITCHES_BASE_ADDRESS 0x50000080
+// #define DIP_SWITCH_STATE_ID 0
+// #define DIP_SWITCH_PRESSED_IRQ_ID 1
+// #define DIP_SWITCH_RELEASE_IRQ_ID 2
+// #define BUTTONS_STATE_ID 3
+// #define BUTTONS_PRESSED_IRQ_ID 4
+// #define BUTTONS_RELEASE_IRQ_ID 5
+// #define IRQ_LATENCY_ID 6
+// #define CLEAR_ALL_IRQ_ID 7
+
 // Constants describing the initial view port on the fractal function
 const uint32_t FRAC_WIDTH = 0x30000000; 
 const uint32_t CX_0 = 0xe0000000;       
@@ -91,17 +102,9 @@ int main() {
   // printf("Enabled switch IRQ generation: %#x\n", irq_enable_mask);
 
   switches[DIP_SWITCH_PRESSED_IRQ_ID] = 0xFFFFFFFF; 
-  // switches[BUTTONS_PRESSED_IRQ_ID] = 0xFFFFFFFF;    // Clear any pending button interrupts
+  switches[BUTTONS_PRESSED_IRQ_ID] = 0xFFFFFFFF;
 
-  // #define SWITCHES_BASE_ADDRESS 0x50000080
-  // #define DIP_SWITCH_STATE_ID 0
-  // #define DIP_SWITCH_PRESSED_IRQ_ID 1
-  // #define DIP_SWITCH_RELEASE_IRQ_ID 2
-  // #define BUTTONS_STATE_ID 3
-  // #define BUTTONS_PRESSED_IRQ_ID 4
-  // #define BUTTONS_RELEASE_IRQ_ID 5
-  // #define IRQ_LATENCY_ID 6
-  // #define CLEAR_ALL_IRQ_ID 7
+
   
   /* Configure SR */
   // Enable External Interrupts in SR
@@ -117,21 +120,6 @@ int main() {
   uint32_t pic_mask = IRQ_BTN | IRQ_DIP;  // Enable IRQ 2 (dip-switch) and IRQ 3 (buttons)
   SPR_WRITE(SPR_PICMR, pic_mask);
   printf("Updated PICMR: %#x\n", SPR_READ(SPR_PICMR));
-
-  // /* Configure SR */
-  // // Enable External Interrupts in SR
-  // uint32_t sr = SPR_READ((0 << 11)|17);  // SPR group 0, reg 17
-  // printf("Current SR: %#x\n", sr);
-  // sr |= (1 << 3);  // Set IEE bitbit (3 - IEE: Interrupt Exception Enable)
-  // SPR_WRITE((0 << 11)|17, sr);
-  // printf("Updated SR: %#x\n", SPR_READ((0 << 11)|17));
-  
-  // // Configure PIC mask register (SPR group 0x09, index 0x000)
-  // uint32_t picmr = SPR_READ((9 << 11)|0);  // SPR group 9, reg 0
-  // printf("Current PICMR: %#x\n", picmr);
-  // uint32_t pic_mask = (1 << 3) | (1 << 2);  // Enable IRQ 2 (dip-switch) and IRQ 3 (buttons)
-  // SPR_WRITE((9 << 11)|0, pic_mask);
-  // printf("Updated PICMR: %#x\n", SPR_READ((9 << 11)|0));
   
 
   delta = FRAC_WIDTH / SCREEN_WIDTH;
@@ -184,50 +172,61 @@ int main() {
 }
 
 
-// void external_interrupt_handler(void) {
-//   volatile uint32_t *switches = (uint32_t *) SWITCHES_BASE_ADDRESS;
+void external_interrupt_handler(void) {
+  volatile uint32_t *switches = (uint32_t *) SWITCHES_BASE_ADDRESS;
   
-//   // Read PIC status to determine which interrupt fired
-//   uint32_t picsr = SPR_READ(SPR_PICSR);
-//   printf("PICSR: %#x\n", picsr);
+  // Read PIC status to determine which interrupt fired
+  uint32_t picsr = SPR_READ(SPR_PICSR);
+  printf("PICSR: %#x\n", picsr);
   
-//   // Check dip-switch interrupt (IRQ 2)
-//   if (picsr & IRQ_DIP) {
-//     dipswitch_handler();
-//     return;
-//   }
+  // Check dip-switch interrupt (IRQ 2)
+  if (picsr & IRQ_DIP) {
+    dipswitch_handler();
+    return;
+  }
   
-//   // Check buttons/joystick interrupt (IRQ 3)
-//   if (picsr & IRQ_BTN) {
-//     // Check which button or joystick triggered
-//     uint32_t buttons_state = switches[BUTTONS_STATE_ID];
-//     printf("Buttons state: %#x\n", buttons_state);
+  // Check buttons/joystick interrupt (IRQ 3)
+  if (picsr & IRQ_BTN) {
+    // Check which button or joystick triggered
+    // uint32_t buttons_state = switches[BUTTONS_PRESSED_IRQ_ID];
+    // printf("Buttons state: %#x\n", buttons_state);
     
-//     if (buttons_state & BIT_SW2) {
-//       buttons_handler();
-//     } else {
-//       joystick_handler();
-//     }
-//     return;
-//   }
-// }
+    buttons_handler();
+    // if (buttons_state & BIT_SW2) {
+    //   buttons_handler();
+    // } else {
+    //   joystick_handler();
+    // }
+    return;
+  }
+}
 
-// void buttons_handler(void) {
-//   volatile uint32_t *switches = (uint32_t *) SWITCHES_BASE_ADDRESS;
-//   // Reading the BUTTONS_PRESSED_IRQ_ID clears the interrupt
-//   uint32_t button_value = switches[BUTTONS_PRESSED_IRQ_ID];
-//   printf("Button pressed: %#x\n", button_value);
-//   puts("button handler");
-// }
+void buttons_handler(void) {
+  volatile uint32_t *switches = (uint32_t *) SWITCHES_BASE_ADDRESS;
+  // Reading the BUTTONS_PRESSED_IRQ_ID clears the interrupt
+  uint32_t button_value = switches[BUTTONS_PRESSED_IRQ_ID];
+  printf("Button pressed: %#x\n", button_value);
+  puts("button handler");
 
-// void dipswitch_handler(void) {
-//   volatile uint32_t *switches = (uint32_t *) SWITCHES_BASE_ADDRESS;
-//   // Reading the DIP_SWITCH_PRESSED_IRQ_ID clears the interrupt
-//   uint32_t dip_value = switches[DIP_SWITCH_PRESSED_IRQ_ID];
-//   printf("DIP-switch: %#x\n", dip_value);
-//   puts("dipswitch handler");
-// }
+  if (button_value & BIT_SW2) {
+      puts("button handler");
+  } 
+  else if (button_value != 0) { 
+      // if not button SW2, then it's joystick
+      joystick_handler(); 
+  }
 
-// void joystick_handler(void) {
-//   puts("joystick handler");
-// }
+
+}
+
+void dipswitch_handler(void) {
+  volatile uint32_t *switches = (uint32_t *) SWITCHES_BASE_ADDRESS;
+  // Reading the DIP_SWITCH_PRESSED_IRQ_ID clears the interrupt
+  uint32_t dip_value = switches[DIP_SWITCH_PRESSED_IRQ_ID];
+  printf("DIP-switch: %#x\n", dip_value);
+  puts("dipswitch handler");
+}
+
+void joystick_handler(void) {
+  puts("joystick handler");
+}
