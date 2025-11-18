@@ -20,7 +20,8 @@
 #define SPR_PICSR           ((9 << 11) | 2)   // PIC Status Register
 
 // Bit definitions for buttons and dip-switches
-#define BIT_SW2             (1 << 6)  // GECKO5: SW1=5, so SW2=6
+// #define BIT_SW2             (1 << 6)  // GECKO5: SW1=5, so SW2=6
+#define BIT_SW2             0x40000000
 #define BIT_DIP1            (1 << 7)  // GECKO5: Dip8=0 (Right), so Dip1=7 (Left)
 
 #define IRQ_DIP        (1 << 2)  // Dip Enable IRQ bit 2
@@ -45,7 +46,9 @@ const uint32_t CY_0 = 0xe8000000;
 const uint16_t N_MAX = 64;              
 
 // global variables indicating the zoom factor and x- and y- offset for the fractal
-uint32_t delta, cxOff, cyOff, redraw;
+// uint32_t delta, cxOff, cyOff, redraw;
+uint32_t delta, cxOff, cyOff;
+volatile uint32_t redraw;
 uint32_t frameBuffer[(SCREEN_WIDTH * SCREEN_HEIGHT)/2];
 
 
@@ -164,10 +167,24 @@ int main() {
     // printf("%#x", read_clear_dip_switch);
 
     
+    // if (redraw == 1) {
+    //   redraw = 0;
+    // drawFractal(frameBuffer);
+    //}
+
+    // --- TASK 2.4 MODIFICATION ---
     if (redraw == 1) {
-      redraw = 0;
-      drawFractal(frameBuffer);
+      // Reset the flag
+      redraw = 0; // [cite: 115]
+      
+      // Measure and print the CPU cycles used for this operation
+      // PERF_COUNTER_RUNTIME is a constant from perf.h
+      perf_print_cycles(PERF_COUNTER_RUNTIME, "irq runtime"); // [cite: 121]
+      
+      // Execute the fractal drawing
+      drawFractal(frameBuffer); // [cite: 116]
     }
+    // --- TASK 2.4 MODIFICATION END ---
   } while(1);
 }
 
@@ -206,14 +223,28 @@ void buttons_handler(void) {
   // Reading the BUTTONS_PRESSED_IRQ_ID clears the interrupt
   uint32_t button_value = switches[BUTTONS_PRESSED_IRQ_ID];
   printf("Button pressed: %#x\n", button_value);
-  puts("button handler");
+  // puts("button handler");
 
   if (button_value & BIT_SW2) {
       puts("button handler");
+
+      // --- TASK 2.4 START ---
+      
+      // Read the hardware latency counter
+      // This value represents system clock cycles between IRQ generation and clearance [cite: 92]
+      uint32_t latency = switches[IRQ_LATENCY_ID];
+      
+      // Print the latency value in decimal as requested [cite: 94]
+      printf("IRQ Latency: %d cycles\n", latency);
+
+      // Trigger the redraw in the main loop to measure CPU runtime 
+      redraw = 1;
+      
+      // --- TASK 2.4 END ---
   } 
   else if (button_value != 0) { 
       // if not button SW2, then it's joystick
-      joystick_handler(); 
+      // joystick_handler(); 
   }
 
 
