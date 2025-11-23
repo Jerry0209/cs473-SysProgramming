@@ -4,7 +4,8 @@ TOOLCHAIN ?= or1k-elf
 DEBUG ?= 0
 # TARGET can be either OR1300 (CS-473) or OR1420 (CS-476)
 TARGET ?= OR1300
-CFLAGS ?=
+CFLAGS ?= -D__OR1300__ -D__REALLY_FAST__ ###! add this !
+CFLAGS ?= 
 LDFLAGS ?=
 ASFLAGS ?=
 
@@ -36,7 +37,7 @@ BUILD = build-debug
 _CFLAGS += -Og -g
 else
 BUILD = build-release
-_CFLAGS += -DNDEBUG -Os
+_CFLAGS += -DNDEBUG -Os ## ! Modify here!!!!
 endif
 
 # you can support new targets here...
