@@ -25,21 +25,23 @@ int main() {
    /* DMA CONFIGURATION (STATIC PART) */
    volatile uint32_t *dma = (uint32_t *) DMA_BASE_ADDRESS;
    printf("Current Burst Size: %#x\n", BURST_SIZE);
+   
 
-   // 1. Set Source Address (SPM Address: 0xC0000000)
-   // volatile uint32_t *spm_buffer = (uint32_t *) swap_u32(dma[SPM_ADDRESS_ID]); // dma[SPM_ADDRESS_ID] = 0xC0, big endian
-   volatile uint32_t *spm_buffer = (uint32_t *) 0xC0000000;
-   dma[SPM_ADDRESS_ID] = swap_u32((uint32_t) spm_buffer); 
-   printf("Start address in the SPM-space: %#x\n", swap_u32(dma[SPM_ADDRESS_ID]));
-   printf("Start address in the MEM-space: %#x\n", swap_u32(dma[MEMORY_ADDRESS_ID]));
-
-
-   // 2. Set Buffer Size (Transfer size)
+   // 1. Set Buffer Size (Transfer size)
    uint32_t spm_buffer_size = SCREEN_WIDTH * 2 / 4; // in words (4 bytes), 512 * 2 / 4 = 256 words
    dma[TRANSFER_SIZE_ID] = swap_u32(spm_buffer_size - 1);
    printf("Transfer size: %#x\n", swap_u32(dma[TRANSFER_SIZE_ID]));
-   // printf("Status: %#x\n", swap_u32(dma[START_STATUS_ID]));
 
+
+   // 2. Set Source Address (SPM Address: 0xC0000000)
+   volatile uint32_t *write_buffer = (uint32_t *) 0xC0000000; // Each address stores 1 byte
+   // But we will write 4 bytes (1 word) at a time as a uint32_t in Fast Implementation
+   volatile uint32_t *dma_buffer = write_buffer + spm_buffer_size; // buffer for DMA reading back data to main memory
+   // Don't require to multiply by 4, because pointer arithmetic already accounts for the size of uint32_t
+   
+   dma[SPM_ADDRESS_ID] = swap_u32((uint32_t) dma_buffer); // Will be updated during the drawing process
+   printf("Start address in the SPM-space: %#x\n", swap_u32(dma[SPM_ADDRESS_ID]));
+   printf("Start address in the MEM-space: %#x\n", swap_u32(dma[MEMORY_ADDRESS_ID]));
 
 
    uint32_t *pixel;
@@ -78,6 +80,10 @@ int main() {
    asm volatile ("l.nios_crc r0,%[in1],%[in2],0x21"::[in1]"r"(color),[in2]"r"(delta)); // custom hardware instruction to set up the hardware accelerator
    // pixel = (uint32_t *)frameBuffer;
 
+   // Pre-calculate DMA start command (constant for all transfers)
+   // Bit 8 = 1 (Start SPM -> Mem)
+   // Bits 7..0 = Burst Size
+   uint32_t dma_start_cmd = swap_u32((1 << 8) | BURST_SIZE);
 
    fxpt_4_28 cy = CY_0;
    for (int k = 0 ; k < SCREEN_HEIGHT ; k++) {
@@ -87,27 +93,30 @@ int main() {
       //  *(pixel++) = color;
 
        // Write 32-bit word (2 pixels) to SPM
-       spm_buffer[i >> 1] = color; 
+       write_buffer[i >> 1] = color; // CPU is calculating pixels and writing to write_buffer
        cx += delta << 1;
      }
 
-      /* DMA TRANSFER START */
-
-      // 3. Set Destination Address (Main Memory Address for the current line)
-      dma[MEMORY_ADDRESS_ID] = swap_u32((uint32_t) &frameBuffer[k * SCREEN_WIDTH]);
-      // printf("Updated Start address in the MEM-space: %#x\n", swap_u32(dma[MEMORY_ADDRESS_ID]));
-
-      // 4. Start Transfer
-      // Bit 8 = 1 (Start SPM -> Mem)
-      // Bits 7..0 = Burst Size
-      dma[START_STATUS_ID] = swap_u32((1 << 8) | BURST_SIZE);
-      // printf("Current Status: %#x\n", swap_u32(dma[START_STATUS_ID]));
-
-      // 5. Poll until finished (Bit 0 is '1' if busy)
+      // Prevent overwriting data being transferred by DMA
       while (swap_u32(dma[START_STATUS_ID]) & 1) {
          // Wait for DMA...
       }
+      // If the previous DMA transfer is not finished, wait until it is done
 
+      /* DMA TRANSFER START */
+      // 3. Exchange the buffers for next line (Set Source Address)
+      volatile uint32_t *temp = write_buffer; // Contains data just written by CPU, available for DMA
+      write_buffer = dma_buffer; // available for CPU to write next line
+      dma_buffer = temp; // Which will be used by DMA for current transfer, previously written by CPU
+      dma[SPM_ADDRESS_ID] = swap_u32((uint32_t) dma_buffer); 
+
+      // 4. Set Destination Address (Main Memory Address for the current line)
+      dma[MEMORY_ADDRESS_ID] = swap_u32((uint32_t) &frameBuffer[k * SCREEN_WIDTH]);
+      // printf("Updated Start address in the MEM-space: %#x\n", swap_u32(dma[MEMORY_ADDRESS_ID]));
+
+      // 5. Start Transfer
+      dma[START_STATUS_ID] = dma_start_cmd;
+      // printf("Current Status: %#x\n", swap_u32(dma[START_STATUS_ID]));
      
 
      cy += delta;
@@ -115,6 +124,12 @@ int main() {
 #else
    draw_fractal(frameBuffer,SCREEN_WIDTH,SCREEN_HEIGHT,&calc_mandelbrot_point_soft, &iter_to_colour,CX_0,CY_0,delta,N_MAX);
 #endif
+
+   // --- Patch start: Wait for the last DMA transfer to complete ---
+   while (swap_u32(dma[START_STATUS_ID]) & 1) {
+       // Wait for the last transfer...
+   }
+
    dcache_flush(); // flush the data cache to make sure VGA controller get the latest data
    asm volatile ("l.lwz %[out1],0(%[in1])":[out1]"=r"(pixel):[in1]"r"(frameBuffer)); // dummy instruction to wait for the flush to be finished
    perf_stop();

@@ -122,20 +122,17 @@ void draw_fractal(rgb565 *fbuf, int width, int height,
   // 1. DMA Base Address
   volatile uint32_t *dma = (uint32_t *) DMA_BASE_ADDRESS;
 
-  // 2. SPM Buffer Setup
-  // Use uint16_t pointer because software version writes 1 pixel (16-bit) at a time.
-  // Address 0xC0000000 is the start of SPM.
-  volatile uint16_t *spm_buffer = (uint16_t *) 0xC0000000;
+  // 2. Set Buffer Size
+  uint32_t spm_buffer_size = width * 2 / 4; // 1024 bytes
+  dma[TRANSFER_SIZE_ID] = swap_u32(spm_buffer_size - 1);
+
+  // 3. Set Source Address (SPM Address: 0xC0000000)
+  volatile uint16_t *write_buffer = (uint16_t *) 0xC0000000; 
+  volatile uint16_t *dma_buffer = write_buffer + spm_buffer_size * 2; // 2 * 2 * 256 = 1024 bytes
+  dma[SPM_ADDRESS_ID] = swap_u32((uint32_t) dma_buffer); // Address is 32-bit aligned
   
-  // Set Source Address: SPM base address
-  dma[SPM_ADDRESS_ID] = swap_u32((uint32_t)spm_buffer);
-
-  // Set Transfer Size
-  uint32_t transfer_size_words = (width * 2) / 4;
-  dma[TRANSFER_SIZE_ID] = swap_u32(transfer_size_words - 1);
-
-
-  volatile rgb565 *pixel = fbuf;
+  uint32_t dma_start_cmd = swap_u32((1 << 8) | BURST_SIZE);
+  // volatile rgb565 *pixel = fbuf;
   fxpt_4_28 cy = cy_0;
   for (int k = 0; k < height; ++k) {
     fxpt_4_28 cx = cx_0;
@@ -143,27 +140,39 @@ void draw_fractal(rgb565 *fbuf, int width, int height,
       uint16_t n_iter = (*cfp_p)(cx, cy, n_max);
       rgb565 colour = (*i2c_p)(n_iter, n_max);
       // *(pixel++) = colour;
-      spm_buffer[i] = colour;
+      write_buffer[i] = colour;
 
       cx += delta;
     }
 
-    // --- DMA TRANSFER FOR ONE LINE ---
+    // Prevent overwriting data being transferred by DMA
+    while (swap_u32(dma[START_STATUS_ID]) & 1) {
+        // Wait for DMA...
+    }
 
-    // 3. Set Destination Address: Current line in Frame Buffer [cite: 86]
+
+    // --- DMA TRANSFER FOR ONE LINE ---
+    // 4. Exchange the buffers for next line (Set Source Address)
+    volatile uint16_t *temp = write_buffer; 
+    write_buffer = dma_buffer; 
+    dma_buffer = temp; 
+    dma[SPM_ADDRESS_ID] = swap_u32((uint32_t) dma_buffer); 
+
+
+    // 5. Set Destination Address: Current line in Frame Buffer
     uint32_t dest_addr = (uint32_t)&fbuf[k * width];
     dma[MEMORY_ADDRESS_ID] = swap_u32(dest_addr);
 
-    // 4. Start Transfer (SPM -> RAM) [cite: 88]
+    // 6. Start Transfer (SPM -> RAM)
     // Bit 8 = 1 (Start SPM->Mem), Bits 7..0 = Burst Size
-    dma[START_STATUS_ID] = swap_u32((1 << 8) | BURST_SIZE);
-
-    // 5. Poll until finished [cite: 96, 107]
-    // Bit 0 of Status Register is 1 if DMA is busy. Wait until the current line is transferred.
-    while (swap_u32(dma[START_STATUS_ID]) & 1) {
-       // Busy wait
-    }
+    dma[START_STATUS_ID] = dma_start_cmd;
 
     cy += delta;
   }
+
+  // --- Patch start: Wait for the last DMA transfer to complete ---
+  while (swap_u32(dma[START_STATUS_ID]) & 1) {
+      // Wait for the last transfer...
+  }
+  
 }
