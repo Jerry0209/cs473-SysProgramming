@@ -4,7 +4,7 @@ TOOLCHAIN ?= or1k-elf
 DEBUG ?= 0
 # TARGET can be either OR1300 (CS-473) or OR1420 (CS-476)
 TARGET ?= OR1300
-CFLAGS ?= -D__OR1300__ -D__REALLY_FAST__ ###! add this !
+CFLAGS ?= -D__OR1300__ #-D__REALLY_FAST__ ###! add this !
 CFLAGS ?= 
 LDFLAGS ?=
 ASFLAGS ?=

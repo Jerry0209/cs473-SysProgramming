@@ -2,6 +2,10 @@
 #include <swap.h>
 #include <dma.h>
 
+#ifndef BURST_SIZE
+#define BURST_SIZE 255
+#endif
+
 //! \brief  Mandelbrot fractal point calculation function
 //! \param  cx    x-coordinate
 //! \param  cy    y-coordinate
@@ -112,6 +116,25 @@ rgb565 iter_to_colour1(uint16_t iter, uint16_t n_max) {
 void draw_fractal(rgb565 *fbuf, int width, int height,
                   calc_frac_point_p cfp_p, iter_to_colour_p i2c_p,
                   fxpt_4_28 cx_0, fxpt_4_28 cy_0, fxpt_4_28 delta, uint16_t n_max) {
+
+  // --- STATIC DMA CONFIGURATION ---
+
+  // 1. DMA Base Address
+  volatile uint32_t *dma = (uint32_t *) DMA_BASE_ADDRESS;
+
+  // 2. SPM Buffer Setup
+  // Use uint16_t pointer because software version writes 1 pixel (16-bit) at a time.
+  // Address 0xC0000000 is the start of SPM.
+  volatile uint16_t *spm_buffer = (uint16_t *) 0xC0000000;
+  
+  // Set Source Address: SPM base address
+  dma[SPM_ADDRESS_ID] = swap_u32((uint32_t)spm_buffer);
+
+  // Set Transfer Size
+  uint32_t transfer_size_words = (width * 2) / 4;
+  dma[TRANSFER_SIZE_ID] = swap_u32(transfer_size_words - 1);
+
+
   volatile rgb565 *pixel = fbuf;
   fxpt_4_28 cy = cy_0;
   for (int k = 0; k < height; ++k) {
@@ -119,9 +142,28 @@ void draw_fractal(rgb565 *fbuf, int width, int height,
     for(int i = 0; i < width; ++i) {
       uint16_t n_iter = (*cfp_p)(cx, cy, n_max);
       rgb565 colour = (*i2c_p)(n_iter, n_max);
-      *(pixel++) = colour;
+      // *(pixel++) = colour;
+      spm_buffer[i] = colour;
+
       cx += delta;
     }
+
+    // --- DMA TRANSFER FOR ONE LINE ---
+
+    // 3. Set Destination Address: Current line in Frame Buffer [cite: 86]
+    uint32_t dest_addr = (uint32_t)&fbuf[k * width];
+    dma[MEMORY_ADDRESS_ID] = swap_u32(dest_addr);
+
+    // 4. Start Transfer (SPM -> RAM) [cite: 88]
+    // Bit 8 = 1 (Start SPM->Mem), Bits 7..0 = Burst Size
+    dma[START_STATUS_ID] = swap_u32((1 << 8) | BURST_SIZE);
+
+    // 5. Poll until finished [cite: 96, 107]
+    // Bit 0 of Status Register is 1 if DMA is busy. Wait until the current line is transferred.
+    while (swap_u32(dma[START_STATUS_ID]) & 1) {
+       // Busy wait
+    }
+
     cy += delta;
   }
 }

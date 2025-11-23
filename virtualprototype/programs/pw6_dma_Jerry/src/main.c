@@ -22,9 +22,25 @@ int main() {
    volatile unsigned int *vga = (unsigned int *) 0X50000020; // vga controller base address
    volatile unsigned int reg, hi;
 
-   // DMA
+   /* DMA CONFIGURATION (STATIC PART) */
    volatile uint32_t *dma = (uint32_t *) DMA_BASE_ADDRESS;
-   volatile uint32_t *spm_buffer = (uint32_t *) dma[SPM_ADDRESS_ID];
+   printf("Current Burst Size: %#x\n", BURST_SIZE);
+
+   // 1. Set Source Address (SPM Address: 0xC0000000)
+   // volatile uint32_t *spm_buffer = (uint32_t *) swap_u32(dma[SPM_ADDRESS_ID]); // dma[SPM_ADDRESS_ID] = 0xC0, big endian
+   volatile uint32_t *spm_buffer = (uint32_t *) 0xC0000000;
+   dma[SPM_ADDRESS_ID] = swap_u32((uint32_t) spm_buffer); 
+   printf("Start address in the SPM-space: %#x\n", swap_u32(dma[SPM_ADDRESS_ID]));
+   printf("Start address in the MEM-space: %#x\n", swap_u32(dma[MEMORY_ADDRESS_ID]));
+
+
+   // 2. Set Buffer Size (Transfer size)
+   uint32_t spm_buffer_size = SCREEN_WIDTH * 2 / 4; // in words (4 bytes), 512 * 2 / 4 = 256 words
+   dma[TRANSFER_SIZE_ID] = swap_u32(spm_buffer_size - 1);
+   printf("Transfer size: %#x\n", swap_u32(dma[TRANSFER_SIZE_ID]));
+   // printf("Status: %#x\n", swap_u32(dma[START_STATUS_ID]));
+
+
 
    uint32_t *pixel;
 
@@ -47,27 +63,22 @@ int main() {
    /* Enable the vga-controller's graphic mode */
    vga[0] = swap_u32(SCREEN_WIDTH);
    vga[1] = swap_u32(SCREEN_HEIGHT);
-   vga[3] = swap_u32( (unsigned int) &frameBuffer[0] ); // set frame buffer address
-   // VGA gets data from memory
+   vga[3] = swap_u32( (unsigned int) &frameBuffer[0] ); // set frame buffer address, VGA gets data from memory
    
+
    /* Clear screen */
    for (int i = 0 ; i < SCREEN_WIDTH*SCREEN_HEIGHT ; i++) frameBuffer[i]=0;
 
-   printf("Start address in the SPM-space: %#x\n", dma[SPM_ADDRESS_ID]);
-   printf("Start address in the MEM-space: %#x\n", dma[MEMORY_ADDRESS_ID]);
-   printf("Transfer size: %#x\n", dma[TRANSFER_SIZE_ID]);
-   printf("Status: %#x\n", dma[START_STATUS_ID]);
-
-   uint32_t spm_buffer_size = SCREEN_WIDTH * 2 / 4; // in words (4 bytes), 512 * 2 / 4 = 256 words, 
-   dma[START_STATUS_ID] = spm_buffer_size - 1; // set transfer size
-   printf("Current Status: %#x\n", dma[START_STATUS_ID]);
+   
 
 
    perf_start();
 #ifdef __REALLY_FAST__
    int color = (2<<16) | N_MAX;
    asm volatile ("l.nios_crc r0,%[in1],%[in2],0x21"::[in1]"r"(color),[in2]"r"(delta)); // custom hardware instruction to set up the hardware accelerator
-   pixel = (uint32_t *)frameBuffer;
+   // pixel = (uint32_t *)frameBuffer;
+
+
    fxpt_4_28 cy = CY_0;
    for (int k = 0 ; k < SCREEN_HEIGHT ; k++) {
      fxpt_4_28 cx = CX_0;
@@ -76,35 +87,28 @@ int main() {
       //  *(pixel++) = color;
 
        // Write 32-bit word (2 pixels) to SPM
-       spm_buffer[i >> 1] = color;
+       spm_buffer[i >> 1] = color; 
        cx += delta << 1;
      }
 
-     // --- Start DMA Transfer for the completed line ---
+      /* DMA TRANSFER START */
+
+      // 3. Set Destination Address (Main Memory Address for the current line)
+      dma[MEMORY_ADDRESS_ID] = swap_u32((uint32_t) &frameBuffer[k * SCREEN_WIDTH]);
+      // printf("Updated Start address in the MEM-space: %#x\n", swap_u32(dma[MEMORY_ADDRESS_ID]));
+
+      // 4. Start Transfer
+      // Bit 8 = 1 (Start SPM -> Mem)
+      // Bits 7..0 = Burst Size
+      dma[START_STATUS_ID] = swap_u32((1 << 8) | BURST_SIZE);
+      // printf("Current Status: %#x\n", swap_u32(dma[START_STATUS_ID]));
+
+      // 5. Poll until finished (Bit 0 is '1' if busy)
+      while (swap_u32(dma[START_STATUS_ID]) & 1) {
+         // Wait for DMA...
+      }
+
      
-     // 1. Set Source Address (SPM Address: 0xC0000000) [cite: 86, 108]
-     // Word offset 1 corresponds to SPM-address register
-     dma[1] = (uint32_t) spm_buffer; 
-
-     // 2. Set Destination Address (Main Memory Address) [cite: 86]
-     // Word offset 0 corresponds to Memory address register
-     // Calculate address of the current line k in frameBuffer
-     dma[0] = (uint32_t) &frameBuffer[k * SCREEN_WIDTH];
-
-     // 3. Set Buffer Size [cite: 86]
-     // Size is in 32-bit words. 512 pixels * 2 bytes / 4 bytes = 256 words.
-     dma[2] = 256; 
-
-     // 4. Start Transfer [cite: 88]
-     // Word offset 3 is Control. 
-     // Bit 8 = 1 (Start SPM->Mem). Bits 7..0 = Burst Size.
-     dma[3] = (1 << 8) | BURST_SIZE;
-
-     // 5. Poll until finished [cite: 96]
-     // Bit 0 of status register (offset 3) is 1 if busy.
-     while (dma[3] & 1) {
-        // Wait for DMA to finish this line before overwriting SPM in next loop
-     }
 
      cy += delta;
    }
