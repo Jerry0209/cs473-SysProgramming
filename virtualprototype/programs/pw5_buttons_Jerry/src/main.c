@@ -94,7 +94,7 @@ int main() {
   /* Enable the vga-controller's graphic mode */
   vga[0] = swap_u32(SCREEN_WIDTH);
   vga[1] = swap_u32(SCREEN_HEIGHT);
-  // vga[3] = swap_u32((unsigned int)&frameBuffer[0]); // disable the vga controller by commenting this line
+  vga[3] = swap_u32((unsigned int)&frameBuffer[0]); // disable the vga controller by commenting this line
 
 
   /* IMPORTANT: First enable interrupt generation on the switch peripheral itself */
@@ -175,7 +175,7 @@ int main() {
     // --- TASK 2.4 MODIFICATION ---
     if (redraw == 1) {
       // Reset the flag
-      redraw = 0; // [cite: 115]
+      redraw = 0; 
       
       // Measure and print the CPU cycles used for this operation
       // PERF_COUNTER_RUNTIME is a constant from perf.h
@@ -226,8 +226,8 @@ void buttons_handler(void) {
   // This value represents system clock cycles between IRQ generation and clearance [cite: 92]
   uint32_t latency = switches[IRQ_LATENCY_ID];
   
-  // Print the latency value in decimal as requested [cite: 94]
-  printf("IRQ Latency: %d cycles\n", latency);
+  // Print the latency value in decimal as requested
+  printf("IRQ Latency: %u cycles\n", latency); // Use unsigned decimal format to prevent negative values
 
   // Trigger the redraw in the main loop to measure CPU runtime 
   redraw = 1;

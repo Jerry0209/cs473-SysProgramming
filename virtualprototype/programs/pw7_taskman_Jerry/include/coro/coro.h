@@ -4,6 +4,9 @@
 #include <stddef.h>
 
 typedef void (*coro_fn_t)();
+// Function pointer type for coroutine functions
+// A coroutine function takes no arguments and returns void
+// Type name: coro_fn_t
 
 /**
  * @brief Initializes the coroutine-related context.

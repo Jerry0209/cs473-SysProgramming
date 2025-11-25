@@ -77,6 +77,8 @@ void taskman_glinit() {
 
 void* taskman_spawn(coro_fn_t coro_fn, void* arg, size_t stack_sz) {
     // (1) allocate stack space for the new task
+    
+
     // (2) initialize the coroutine and struct task_data
     // (3) register the coroutine in the tasks array
     // use die_if_not() statements to handle error conditions (like no memory)

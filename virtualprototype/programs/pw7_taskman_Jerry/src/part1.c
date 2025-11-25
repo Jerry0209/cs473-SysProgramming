@@ -2,10 +2,10 @@
 #include <defs.h>
 #include <stdio.h>
 
-__global static char stack0[1024];
+__global static char stack0[1024]; // Stack for the coroutine
 
 static int f(int x) {
-    printf("func = %s, x = %d\n", __func__, x);
+    printf("func = %s, x = %d\n", __func__, x); // Print function name and argument
     coro_yield();
     return 60 + x;
 }
@@ -27,9 +27,12 @@ static void test_fn() {
 void part1() {
     printf("Part 1: Coroutines\n");
 
-    coro_glinit();
+    coro_glinit(); // Initialize global coroutine context
 
+    // Pass the stack to be allocated to the coroutine, along with its size, the function to execute, and an argument
     coro_init(stack0, sizeof(stack0), &test_fn, (void*)0xDEADBEEF);
+
+    // 
     *(uint32_t*)coro_data(stack0) = 0xAAAABEEF;
 
     for (int i = 0; i < 9; ++i) {
@@ -44,3 +47,5 @@ void part1() {
         puts("not completed");
     }
 }
+
+
