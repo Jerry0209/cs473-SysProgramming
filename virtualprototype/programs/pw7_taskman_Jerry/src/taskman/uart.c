@@ -5,6 +5,7 @@
 #include <taskman/uart.h>
 #include <uart.h>
 
+#define SOLUTION
 #include <implement_me.h>
 
 #define UART_BUFFER_CAPACITY 64
@@ -108,7 +109,38 @@ static int can_resume(struct taskman_handler* handler, void* stack, void* arg) {
     // Note: do not write the new line character
 
 
-    IMPLEMENT_ME;
+    // IMPLEMENT_ME;
+
+    // Loop as long as there is data in the internal buffer AND space in the user buffer
+    // We need space for at least 1 char + the null terminator, so check capacity - 1
+    while (uart_buffer_nonempty(uart_buffer) && wait_data->length < (wait_data->buffer_capacity - 1)) {
+        
+        uint8_t ch = uart_buffer_pop(uart_buffer);
+
+        // Check for enter key (newline)
+        if (ch == '\n' || ch == '\r') {
+            // Found a line! Finish up.
+            wait_data->buffer[wait_data->length] = '\0'; // Add null terminator
+            
+            // We are done waiting, so clear the stack pointer
+            uart_handler.stack = NULL;
+            return 1; // Yes, can resume!
+        }
+
+        // Just a normal character, save it
+        wait_data->buffer[wait_data->length] = ch;
+        wait_data->length++;
+    }
+
+    // Special case: What if the user buffer is full?
+    if (wait_data->length >= (wait_data->buffer_capacity - 1)) {
+        wait_data->buffer[wait_data->length] = '\0';
+        uart_handler.stack = NULL;
+        return 1; // Resume because buffer is full
+    }
+
+    // If we are here, we haven't found a newline and buffer isn't full yet
+    return 0;
 }
 
 static void loop(struct taskman_handler* handler) {
@@ -122,7 +154,25 @@ static void loop(struct taskman_handler* handler) {
     // see: support/src/uart.c for help.
 
 
-    IMPLEMENT_ME;
+    // IMPLEMENT_ME;
+
+    // I checked support/src/uart.c (even though I can't see it here, it's standard UART)
+    // Offset 5 is the Line Status Register (LSR). Bit 0 means "Data Ready".
+    // Offset 0 is the Receive Buffer (RBR).
+    
+    // Check if data is ready (bit 0 is 1)
+    while ((uart[5] & 0x01)) {
+        // Read the character
+        char c = uart[0];
+
+        // Only save it if we have space in our internal circular buffer
+        if (uart_buffer_nonfull(uart_buffer)) {
+            uart_buffer_put(uart_buffer, (uint8_t)c);
+        } else {
+            // Buffer is full, drop the packet (or maybe break loop)
+            // For now I just ignore it
+        }
+    }
 }
 
 void taskman_uart_glinit() {
