@@ -16,12 +16,12 @@ coro__switch:
     # r3: void *sp, r4: void **old_sp
 
     # step 1: save the current coroutine context
-    l.addi r1, r1, -0x2C # Allocate 44 bytes on stack
+    l.addi r1, r1, -0x2C # Allocate 44 bytes on stack, r1 is the Stack Pointer (of main) of current stack (when this function being called)
 
-    l.sw 0x00(r4), r1 # Store current SP to old_sp pointer
-    l.sw 0x00(r1), r9 # Save LR (return address)
+    l.sw 0x00(r4), r1 # sw, store single word, Store current SP to old_sp pointer, content of r1 --> (EA) = (content of r4, old_sp + 0), put caller_sp, i.e. current stack pointer
+    l.sw 0x00(r1), r9 # Save LR (return address), the next line after the coro__switch function
 
-    # callee-saved registers
+    # callee-saved registers 被调用者负责储存/恢复, save to the coroutine context allocated in step 1
     # note that we do not need to save:
     # r1 (SP), r10 (TLS)
     l.sw 0x04(r1), r2 # Save r2
@@ -43,11 +43,11 @@ coro__switch:
 
     # other registers shall be saved by the caller
 
-    # now, restore the other context
-    l.or r1, r3, r3 # Load new SP from r3
-    l.lwz r9, 0x00(r1) # Restore LR
+    # now, restore the other context (for each coroutine, those data are stored above (after) coro_data struct)
+    l.or r1, r3, r3 # Load new SP from r3, load new stack pointer to r1
+    l.lwz r9, 0x00(r1) # Restore LR, func_coro
 
-    # callee-saved registers
+    # callee-saved registers, read values from new stack of new coroutine
     l.lwz r2, 0x04(r1) # Restore r2
     l.lwz r14, 0x08(r1) # Restore r14
     l.lwz r16, 0x0C(r1) # Restore r16
@@ -69,4 +69,12 @@ coro__switch:
 
     # jump to the routine
     l.jr r9 # Jump to restored return address
-    l.addi r1, r1, 0x2C # Deallocate stack (delay slot)
+    l.addi r1, r1, 0x2C # Deallocate stack (delay slot), destroy the stack of current routine, whose register values have been restored
+
+    # 这里涉及到一个底层硬件概念：延迟槽 (Delay Slot)。
+    # OpenRISC（以及 MIPS 等架构）的流水线设计决定了：跳转指令后面紧跟的那一条指令，会在跳转真正发生“之前”（或者同时）被执行。
+    # 所以，执行顺序在物理上是这样的：
+    #    1. CPU 看到 jump 指令，开始准备起跳。
+    #    2. 趁着起跳的空隙，CPU 顺手把下一行 l.addi 给执行了。
+    #    3. CPU 落地，抵达 r9 指向的新地址。
+    # 3. 这行 addi 到底在干嘛？

@@ -12,7 +12,7 @@ typedef void (*coro_fn_t)();
  * @brief Initializes the coroutine-related context.
  *
  */
-void coro_glinit();
+void coro_glinit(); // In coro.s
 
 /**
  * @brief Initializes a stack for a new coroutine to be executed.
