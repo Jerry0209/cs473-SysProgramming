@@ -5,7 +5,7 @@
 #include <taskman/taskman.h>
 
 // I included this to make the IMPLEMENT_ME error go away
-#define SOLUTION
+// #define SOLUTION
 
 #include <implement_me.h>
 
@@ -89,44 +89,34 @@ void* taskman_spawn(coro_fn_t coro_fn, void* arg, size_t stack_sz) {
 
     // IMPLEMENT_ME;
 
-    // (1) allocate stack space for the new task
-    // First, we need to check if we have enough memory left in the big stack array.
-    // We also check if we have reached the maximum number of tasks.
-    TASKMAN_LOCK(); // Safety first! prevent issues later
-    
-    if (taskman.stack_offset + stack_sz > TASKMAN_STACK_SIZE) {
-        die_if_not_f(0, "Error: Not enough stack memory available!");
-    }
-    
-    if (taskman.tasks_count >= TASKMAN_NUM_TASKS) {
-        die_if_not_f(0, "Error: Too many tasks!");
-    }
+    // Check the size of new stack
+    die_if_not_f(
+        taskman.stack_offset + stack_sz <= TASKMAN_STACK_SIZE, 
+        "current task stack size is too large"
+    );
 
-    // Now calculate where the new stack starts
-    // It starts at the current offset
-    void* stack_ptr = &taskman.stack[taskman.stack_offset];
+    die_if_not_f(taskman.tasks_count < TASKMAN_NUM_TASKS, "Too many tasks");
+
+    // Initialize coroutine with task stack
     
-    // Update the offset for the next task
+    uint8_t* task_sp = &taskman.stack[taskman.stack_offset];
+    coro_init(task_sp, stack_sz, coro_fn, arg); // Not starting from here
+    
+    // Initialize struct task_data
+    // struct task_data* task = (struct task_data*)task_sp;
+    struct task_data* task_data = (struct task_data*)coro_data(task_sp); // In coro data
+    task_data->wait.handler = NULL;
+    task_data->wait.arg = NULL;
+    task_data->running = 0;
+
+    // Register task into array
+    taskman.tasks[taskman.tasks_count] = task_sp;
+
+    // Update task manager state
     taskman.stack_offset += stack_sz;
+    taskman.tasks_count ++;
 
-    // (2) initialize the coroutine and struct task_data
-    // This sets up the stack for the coroutine function
-    coro_init(stack_ptr, stack_sz, coro_fn, arg);
-
-    // Get the task data pointer (it's stored in the coroutine stack)
-    struct task_data* t_data = (struct task_data*)coro_data(stack_ptr);
-    
-    // Initialize the values
-    t_data->wait.handler = NULL; // Not waiting for anything yet
-    t_data->wait.arg = NULL;
-    t_data->running = 0; // Not running yet
-
-    // (3) register the coroutine in the tasks array
-    taskman.tasks[taskman.tasks_count] = stack_ptr;
-    taskman.tasks_count++; // Increase the task counter
-
-    TASKMAN_RELEASE();
-    return stack_ptr;
+    return task_sp;
 }
 
 void taskman_loop() {
@@ -136,59 +126,61 @@ void taskman_loop() {
     //        * it yielded using `taskman_yield`.
     //        * the waiting handler says it can be resumed.
 
-    // while (!taskman.should_stop) {
-
-    //     IMPLEMENT_ME;
-    // }
+    
 
     while (!taskman.should_stop) {
-        // Step A: Let all handlers do their job (like checking hardware)
+
+        // IMPLEMENT_ME;
+
+        // Polling
         for (int i = 0; i < taskman.handlers_count; i++) {
             struct taskman_handler* h = taskman.handlers[i];
-            // Check if the loop function pointer is valid before calling it
+            // 必须检查 h 不为空，且 h->loop 指针也不为空，防止崩
             if (h != NULL && h->loop != NULL) {
-                h->loop(h);
+                h->loop(h); // 这一步就是去轮询硬件（比如问 UART 有没有数据）
             }
         }
 
-        // Step B: Check all tasks to see if anyone can work
-        for (int i = 0; i < taskman.tasks_count; i++) {
-            void* current_task_stack = taskman.tasks[i];
-            
-            // If the task is already finished, we just skip it
-            if (coro_completed(current_task_stack, NULL)) {
+        for(int i = 0; i < taskman.tasks_count; i++){
+            void* task_sp = taskman.tasks[i];
+
+            // 1. If task has already completed
+            if (coro_completed(task_sp, NULL)) {
                 continue;
             }
 
-            struct task_data* data = (struct task_data*)coro_data(current_task_stack);
+            struct task_data* task_data = (struct task_data*)coro_data(task_sp);
 
-            // If it's somehow marked as running (shouldn't happen in single core here), skip
-            if (data->running) {
+            // 2. If current stack is running
+            if (task_data->running) {
                 continue;
             }
 
-            int ready_to_run = 0;
+            // 3. Check handler
+            int ready = 0;
 
-            // Check why the task is waiting
-            if (data->wait.handler == NULL) {
-                // If handler is NULL, it means it just yielded voluntarily (taskman_yield)
-                // So it is ready to run again immediately
-                ready_to_run = 1;
+            if (task_data->wait.handler == NULL) {
+                // No handler
+                ready = 1;
             } else {
-                // If it's waiting for a handler, ask the handler if it's okay to resume
-                if (data->wait.handler->can_resume(data->wait.handler, current_task_stack, data->wait.arg)) {
-                    ready_to_run = 1;
+
+                if (task_data->wait.handler->can_resume(task_data->wait.handler, task_sp, task_data->wait.arg)) {
+                    ready = 1;
                 }
             }
 
-            // If it is ready, let's run it!
-            if (ready_to_run) {
-                data->running = 1; // Mark as running
-                coro_resume(current_task_stack); // Switch context to the task
-                data->running = 0; // It returned, so it's not running anymore
+            if (ready) {
+                task_data->running = 1;       
+                coro_resume(task_sp); // Run task!
+                task_data->running = 0;       
             }
+
+            
         }
+
     }
+
+    
 }
 
 void taskman_stop() {
@@ -216,32 +208,34 @@ void taskman_wait(struct taskman_handler* handler, void* arg) {
 
 
     // IMPLEMENT_ME;
+    if(handler == NULL || (!handler->on_wait(handler, stack, arg))){ // on_wait is 0 -> should wait
 
-    int need_to_wait = 1; // Default is we need to wait
-
-    // If we have a handler, maybe we don't actually need to wait?
-    // For example, maybe the semaphore is already green.
-    if (handler != NULL && handler->on_wait != NULL) {
-        // on_wait returns 1 if we don't need to yield (success immediately)
-        if (handler->on_wait(handler, stack, arg) == 1) {
-            need_to_wait = 0;
-        }
-    }
-
-    if (need_to_wait) {
-        // Update the wait field of the task_data.
+        // Store handler to current task if it has to wait, so next time it can be checked
         task_data->wait.handler = handler;
         task_data->wait.arg = arg;
 
-        // Yield if necessary.
-        // This pauses the current task and goes back to taskman_loop
         coro_yield();
-        
-        // When we come back here, it means we were resumed.
-        // So we are not waiting for anything anymore.
+
+        // If resume, previous handler is finished and should be removed
         task_data->wait.handler = NULL;
     }
-}
+
+
+    // struct task_data {
+    // struct {
+    //     /// @brief Handler
+    //     /// @note NULL if waiting on `coro_yield`.
+    //     struct taskman_handler* handler;
+
+    //     /// @brief Argument to the wait handler
+    //     void* arg;
+    // } wait;
+
+    // /// @brief 1 if running, 0 otherwise.
+    // int running;
+};
+
+    
 
 void taskman_yield() {
     taskman_wait(NULL, NULL);

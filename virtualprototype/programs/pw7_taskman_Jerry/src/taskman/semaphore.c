@@ -3,7 +3,7 @@
 #define SOLUTION
 #include <implement_me.h>
 
-__global static struct taskman_handler semaphore_handler;
+__global static struct taskman_handler semaphore_handler; // Define semaphore_handler
 
 // I define a simple enum to know what operation we want to do
 enum sem_operation {
@@ -38,7 +38,7 @@ static int impl(struct wait_data* wait_data) {
         }
     } else {
         // Trying to increase (release a resource)
-        // We also need to check max, because this is a bounded semaphore
+        // Check max semaphore
         if (s->count < s->max) {
             s->count++; // Success! we added one
             return 1;   // Return 1 means success
@@ -65,6 +65,7 @@ static int can_resume(struct taskman_handler* handler, void* stack, void* arg) {
 
 static void loop(struct taskman_handler* handler) {
     UNUSED(handler);
+    // No polling required
 }
 
 /* END SOLUTION */
@@ -75,7 +76,7 @@ void taskman_semaphore_glinit() {
     semaphore_handler.can_resume = &can_resume;
     semaphore_handler.loop = &loop;
 
-    taskman_register(&semaphore_handler);
+    taskman_register(&semaphore_handler); // Register to taskman
 }
 
 void taskman_semaphore_init(
@@ -108,5 +109,5 @@ void __no_optimize taskman_semaphore_up(struct taskman_semaphore* semaphore) {
     data.sem = semaphore;
     data.op = SEM_OP_UP;
 
-    taskman_wait(&semaphore_handler, &data);
+    taskman_wait(&semaphore_handler, &data); // Handler 有用于判断的工具， taskman 根据 data 判断 yield 还是 resume
 }

@@ -12,11 +12,12 @@ __global static struct {
 
     /** @brief last tick value */
     uint32_t last_tick_value;
+
 } tick_handler;
 
 static int on_wait(struct taskman_handler* handler, void* stack, void* arg) {
     UNUSED(handler);
-    UNUSED(stack);
+    UNUSED(stack); // stack is not used in tick
 
     uint32_t wait_until = (uint32_t)arg;
     return taskman_tick_now() > wait_until;

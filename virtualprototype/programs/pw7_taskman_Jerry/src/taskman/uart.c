@@ -5,7 +5,7 @@
 #include <taskman/uart.h>
 #include <uart.h>
 
-#define SOLUTION
+// #define SOLUTION
 #include <implement_me.h>
 
 #define UART_BUFFER_CAPACITY 64

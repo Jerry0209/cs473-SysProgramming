@@ -76,13 +76,13 @@ static void entry_task() {
     #endif
 
     // SECTION: uart test
-    #if 1
+    #if 0
     taskman_spawn(&uart_task, NULL, 8ull << 10);
     #endif
 
     // SECTION: semaphore test
     #if 1
-    taskman_semaphore_init(&s, 0, 3);
+    taskman_semaphore_init(&s, 0, 3); // Initially, all the resources are taken
 
     taskman_spawn(&up_task, (void*)2000, 8ull << 10);
     taskman_spawn(&up_task, (void*)3000, 8ull << 10);
@@ -100,12 +100,16 @@ static void entry_task() {
 
     printf("[ t = %10u ms ] %s: all up_task's are complete\n", taskman_tick_now(), __func__);
 
-    /* Now, let's block `up_task`s. */
-    taskman_semaphore_up(&s);
-    taskman_semaphore_up(&s);
-    taskman_semaphore_up(&s);
+    // Current semaphore = 0, 3 - 3 = 0
 
-    taskman_spawn(&up_task, (void*)0, 1ull << 10);
+    /* Now, let's block `up_task`s. */
+    taskman_semaphore_up(&s); 
+    taskman_semaphore_up(&s); 
+    taskman_semaphore_up(&s);
+    // Already reach max semaphore, impossible to increase again
+    // Thus, yield
+
+    taskman_spawn(&up_task, (void*)0, 1ull << 10); // taskman_wait inside to decide to continue or not
     taskman_spawn(&up_task, (void*)0, 1ull << 10);
     taskman_spawn(&up_task, (void*)0, 1ull << 10);
     printf("[ t = %10u ms ] %s: blocking all up_task's for 2 seconds\n", taskman_tick_now(), __func__);
