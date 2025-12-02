@@ -44,11 +44,11 @@ static void up_task() {
  *
  */
 static void uart_task() {
-    uint8_t buf[4096 /* vary this, maybe. */];
+    uint8_t buf[6 /* vary this, maybe. */];
     int total_len = 0;
 
     while (1) {
-        int len = taskman_uart_getline(buf, sizeof(buf));
+        int len = taskman_uart_getline(buf, sizeof(buf)); // 1 byte * N
         total_len += len;
         printf(
             "[ t = %10u ms ] %s: received line with length = %d (total = %d): %s\n",
@@ -76,7 +76,7 @@ static void entry_task() {
     #endif
 
     // SECTION: uart test
-    #if 0
+    #if 1
     taskman_spawn(&uart_task, NULL, 8ull << 10);
     #endif
 
@@ -122,7 +122,12 @@ static void entry_task() {
 
     #endif
 
-    taskman_tick_wait_for(1000);
+    // Longer time for UART
+    printf(">>> UART Test <<<\n");
+    
+    // 30s
+    taskman_tick_wait_for(30000);
+    // taskman_tick_wait_for(1000);
 
     printf("[ t = %10u ms ] %s: stopping the task manager loop\n", taskman_tick_now(), __func__);
     taskman_stop();

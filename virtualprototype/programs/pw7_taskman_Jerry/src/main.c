@@ -14,5 +14,5 @@ int main() {
 
     part1();
     part2_1();
-    // part2_2();
+    part2_2();
 }

@@ -88,7 +88,7 @@ void* taskman_spawn(coro_fn_t coro_fn, void* arg, size_t stack_sz) {
 
 
     // IMPLEMENT_ME;
-
+    TASKMAN_LOCK();
     // Check the size of new stack
     die_if_not_f(
         taskman.stack_offset + stack_sz <= TASKMAN_STACK_SIZE, 
@@ -116,6 +116,8 @@ void* taskman_spawn(coro_fn_t coro_fn, void* arg, size_t stack_sz) {
     taskman.stack_offset += stack_sz;
     taskman.tasks_count ++;
 
+
+    TASKMAN_RELEASE();
     return task_sp;
 }
 
@@ -132,7 +134,8 @@ void taskman_loop() {
 
         // IMPLEMENT_ME;
 
-        // Polling
+        TASKMAN_LOCK();
+        // Start Polling of each handler
         for (int i = 0; i < taskman.handlers_count; i++) {
             struct taskman_handler* h = taskman.handlers[i];
             // 必须检查 h 不为空，且 h->loop 指针也不为空，防止崩
@@ -140,12 +143,16 @@ void taskman_loop() {
                 h->loop(h); // 这一步就是去轮询硬件（比如问 UART 有没有数据）
             }
         }
+        TASKMAN_RELEASE();
 
         for(int i = 0; i < taskman.tasks_count; i++){
+
+            TASKMAN_LOCK();
             void* task_sp = taskman.tasks[i];
 
             // 1. If task has already completed
             if (coro_completed(task_sp, NULL)) {
+                TASKMAN_RELEASE();
                 continue;
             }
 
@@ -153,6 +160,7 @@ void taskman_loop() {
 
             // 2. If current stack is running
             if (task_data->running) {
+                TASKMAN_RELEASE();
                 continue;
             }
 
@@ -170,9 +178,17 @@ void taskman_loop() {
             }
 
             if (ready) {
-                task_data->running = 1;       
+                task_data->running = 1;    
+                
+                TASKMAN_RELEASE();
                 coro_resume(task_sp); // Run task!
-                task_data->running = 0;       
+                
+                TASKMAN_LOCK();
+                task_data->running = 0;
+                TASKMAN_RELEASE();
+                       
+            } else {
+                TASKMAN_RELEASE();
             }
 
             

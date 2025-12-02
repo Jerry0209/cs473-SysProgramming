@@ -8,7 +8,7 @@ void uart_glinit(volatile char* uart) {
 }
 
 void uart_wait_rx(volatile char* uart) {
-    while ((uart[UART_LINE_STATUS_REGISTER] & UART_RX_AVAILABLE_MASK) == 0)
+    while ((uart[UART_LINE_STATUS_REGISTER] & UART_RX_AVAILABLE_MASK) == 0) // Block
         asm volatile("l.nop");
 }
 

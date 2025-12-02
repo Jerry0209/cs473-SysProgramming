@@ -5,7 +5,7 @@
 #include <taskman/uart.h>
 #include <uart.h>
 
-// #define SOLUTION
+#define SOLUTION
 #include <implement_me.h>
 
 #define UART_BUFFER_CAPACITY 64
@@ -52,15 +52,15 @@ static uint8_t uart_buffer_head(struct uart_buffer* uart_buffer) {
     return uart_buffer->data[uart_buffer->head];
 }
 
-static void uart_buffer_put(struct uart_buffer* uart_buffer, uint8_t ch) {
+static void uart_buffer_put(struct uart_buffer* uart_buffer, uint8_t ch) { // char
     die_if_not(uart_buffer_nonfull(uart_buffer));
-    uart_buffer->data[(uart_buffer->head + uart_buffer->size) % UART_BUFFER_CAPACITY] = ch;
+    uart_buffer->data[(uart_buffer->head + uart_buffer->size) % UART_BUFFER_CAPACITY] = ch; // Point to next available place, and store data there
     uart_buffer->size++;
 }
 
 static uint8_t uart_buffer_pop(struct uart_buffer* uart_buffer) {
     die_if_not(uart_buffer_nonempty(uart_buffer));
-    uint8_t result = uart_buffer->data[uart_buffer->head];
+    uint8_t result = uart_buffer->data[uart_buffer->head]; // read current data
     uart_buffer->head = (uart_buffer->head + 1) % UART_BUFFER_CAPACITY;
     uart_buffer->size--;
     return result;
@@ -97,7 +97,7 @@ static int on_wait(struct taskman_handler* handler, void* stack, void* arg) {
 static int can_resume(struct taskman_handler* handler, void* stack, void* arg) {
     UNUSED(handler);
 
-    struct wait_data* wait_data = (struct wait_data*)arg;
+    struct wait_data* wait_data = (struct wait_data*)arg; // An empty buffer defined by user and passed here
     struct uart_buffer* uart_buffer = &uart_handler.uart_buffer;
 
     // Check if the UART buffer has data.
@@ -111,36 +111,53 @@ static int can_resume(struct taskman_handler* handler, void* stack, void* arg) {
 
     // IMPLEMENT_ME;
 
-    // Loop as long as there is data in the internal buffer AND space in the user buffer
-    // We need space for at least 1 char + the null terminator, so check capacity - 1
-    while (uart_buffer_nonempty(uart_buffer) && wait_data->length < (wait_data->buffer_capacity - 1)) {
-        
-        uint8_t ch = uart_buffer_pop(uart_buffer);
+    // From task main loop
+    int resume = 0;
+    uint8_t ch = 0;
 
-        // Check for enter key (newline)
-        if (ch == '\n' || ch == '\r') {
-            // Found a line! Finish up.
-            wait_data->buffer[wait_data->length] = '\0'; // Add null terminator
-            
-            // We are done waiting, so clear the stack pointer
+    while(uart_buffer_nonempty(uart_buffer)){
+        
+        // If wait_data buffer is full, terminate, resume task
+        if((wait_data->buffer_capacity - 1) <= wait_data ->length){
+            resume = 1;
+            wait_data->buffer[wait_data->length] = '\0';
             uart_handler.stack = NULL;
-            return 1; // Yes, can resume!
+            resume = 1;
+            // wait_data->length++;
+            return resume;
         }
 
-        // Just a normal character, save it
+
+        // If wait_data buffer is not full, continue reading from uart_buffer
+        ch = uart_buffer_pop(uart_buffer);
+
+        if (ch == '\n') {
+            wait_data->buffer[wait_data->length] = '\0';
+            uart_handler.stack = NULL; 
+            resume = 1;
+            return resume; 
+        }
+
+
+        // Add to wait_data
         wait_data->buffer[wait_data->length] = ch;
         wait_data->length++;
+
+        // only when wait_data buffer is full / newline character, resume task
+        // otherwise continue reading from buffer
+
+        // Immediately check, otherwise if no data in UART buffer, only when the next char comes in, task will resume
+        if((wait_data->buffer_capacity - 1) <= wait_data ->length){
+            resume = 1;
+            wait_data->buffer[wait_data->length] = '\0';
+            uart_handler.stack = NULL;
+            resume = 1;
+            return resume;
+        }
     }
 
-    // Special case: What if the user buffer is full?
-    if (wait_data->length >= (wait_data->buffer_capacity - 1)) {
-        wait_data->buffer[wait_data->length] = '\0';
-        uart_handler.stack = NULL;
-        return 1; // Resume because buffer is full
-    }
-
-    // If we are here, we haven't found a newline and buffer isn't full yet
-    return 0;
+    return resume;
+    
 }
 
 static void loop(struct taskman_handler* handler) {
@@ -156,23 +173,17 @@ static void loop(struct taskman_handler* handler) {
 
     // IMPLEMENT_ME;
 
-    // I checked support/src/uart.c (even though I can't see it here, it's standard UART)
-    // Offset 5 is the Line Status Register (LSR). Bit 0 means "Data Ready".
-    // Offset 0 is the Receive Buffer (RBR).
-    
-    // Check if data is ready (bit 0 is 1)
-    while ((uart[5] & 0x01)) {
-        // Read the character
-        char c = uart[0];
+    while(uart[UART_LINE_STATUS_REGISTER] & 0x01){
+        uint8_t ch = uart_getc(uart);
 
-        // Only save it if we have space in our internal circular buffer
-        if (uart_buffer_nonfull(uart_buffer)) {
-            uart_buffer_put(uart_buffer, (uint8_t)c);
-        } else {
-            // Buffer is full, drop the packet (or maybe break loop)
-            // For now I just ignore it
+        if (uart_buffer_nonfull(uart_buffer))
+        {
+            uart_buffer_put(uart_buffer, ch);
         }
+        
     }
+
+    
 }
 
 void taskman_uart_glinit() {
@@ -188,11 +199,14 @@ void taskman_uart_glinit() {
 }
 
 size_t __no_optimize taskman_uart_getline(uint8_t* buffer, size_t capacity) {
+    // int len = taskman_uart_getline(buf, sizeof(buf));
+    // Give a user defined buffer
     struct wait_data wait_data = {
         .buffer = buffer,
         .buffer_capacity = capacity,
         .length = 0
     };
-    taskman_wait(&uart_handler.handler, (void*)&wait_data);
+    taskman_wait(&uart_handler.handler, (void*)&wait_data); // Always yield, only pass wait_data arg?
+
     return wait_data.length;
 }
