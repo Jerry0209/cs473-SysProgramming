@@ -88,7 +88,7 @@ void* taskman_spawn(coro_fn_t coro_fn, void* arg, size_t stack_sz) {
 
 
     // IMPLEMENT_ME;
-    TASKMAN_LOCK();
+    TASKMAN_LOCK(); // Add lock to global taskman which might be modified by two different cores
     // Check the size of new stack
     die_if_not_f(
         taskman.stack_offset + stack_sz <= TASKMAN_STACK_SIZE, 
@@ -99,12 +99,14 @@ void* taskman_spawn(coro_fn_t coro_fn, void* arg, size_t stack_sz) {
 
     // Initialize coroutine with task stack
     
-    uint8_t* task_sp = &taskman.stack[taskman.stack_offset];
+    uint8_t* task_sp = &taskman.stack[taskman.stack_offset]; // Add task stack just below the previous task stack
     coro_init(task_sp, stack_sz, coro_fn, arg); // Not starting from here
     
     // Initialize struct task_data
     // struct task_data* task = (struct task_data*)task_sp;
-    struct task_data* task_data = (struct task_data*)coro_data(task_sp); // In coro data
+    struct task_data* task_data = (struct task_data*)coro_data(task_sp); 
+    // In coro data, task data is a section in coroutine which stores the current task information, i.e. handler, running status etc
+
     task_data->wait.handler = NULL;
     task_data->wait.arg = NULL;
     task_data->running = 0;
@@ -138,9 +140,10 @@ void taskman_loop() {
         // Start Polling of each handler
         for (int i = 0; i < taskman.handlers_count; i++) {
             struct taskman_handler* h = taskman.handlers[i];
-            // 必须检查 h 不为空，且 h->loop 指针也不为空，防止崩
+
+            // Must check that h is not NULL and h->loop pointer is also not NULL to prevent crashes
             if (h != NULL && h->loop != NULL) {
-                h->loop(h); // 这一步就是去轮询硬件（比如问 UART 有没有数据）
+                h->loop(h); // This step polls the hardware (e.g., ask UART if there is data)
             }
         }
         TASKMAN_RELEASE();
@@ -159,8 +162,8 @@ void taskman_loop() {
             struct task_data* task_data = (struct task_data*)coro_data(task_sp);
 
             // 2. If current stack is running
-            if (task_data->running) {
-                TASKMAN_RELEASE();
+            if (task_data->running) { // Running status is stored in the task data section in coro data
+                TASKMAN_RELEASE(); // If current task/coroutine is running, CPU shouldn't take control of the current task
                 continue;
             }
 
@@ -168,7 +171,7 @@ void taskman_loop() {
             int ready = 0;
 
             if (task_data->wait.handler == NULL) {
-                // No handler
+                // If no handler, not required to wait
                 ready = 1;
             } else {
 
@@ -178,7 +181,7 @@ void taskman_loop() {
             }
 
             if (ready) {
-                task_data->running = 1;    
+                task_data->running = 1; 
                 
                 TASKMAN_RELEASE();
                 coro_resume(task_sp); // Run task!
@@ -213,8 +216,8 @@ void taskman_register(struct taskman_handler* handler) {
     taskman.handlers_count++;
 }
 
-void taskman_wait(struct taskman_handler* handler, void* arg) {
-    void* stack = coro_stack();
+void taskman_wait(struct taskman_handler* handler, void* arg) { // should be called in the coroutine
+    void* stack = coro_stack(); // stack of current running coroutine
     struct task_data* task_data = coro_data(stack);
 
     // I suggest that you read `struct taskman_handler` definition.
@@ -225,36 +228,23 @@ void taskman_wait(struct taskman_handler* handler, void* arg) {
 
     // IMPLEMENT_ME;
     if(handler == NULL || (!handler->on_wait(handler, stack, arg))){ // on_wait is 0 -> should wait
-
+        // if my handler is null, it means that I don't have to wait for any conditions to resume when taskman loop calls me next time
         // Store handler to current task if it has to wait, so next time it can be checked
         task_data->wait.handler = handler;
         task_data->wait.arg = arg;
 
-        coro_yield();
+        coro_yield(); // store status at this point
 
         // If resume, previous handler is finished and should be removed
         task_data->wait.handler = NULL;
     }
 
-
-    // struct task_data {
-    // struct {
-    //     /// @brief Handler
-    //     /// @note NULL if waiting on `coro_yield`.
-    //     struct taskman_handler* handler;
-
-    //     /// @brief Argument to the wait handler
-    //     void* arg;
-    // } wait;
-
-    // /// @brief 1 if running, 0 otherwise.
-    // int running;
 };
 
     
 
 void taskman_yield() {
-    taskman_wait(NULL, NULL);
+    taskman_wait(NULL, NULL); // Abstract level of coroutine yield
 }
 
 void taskman_return(void* result) {

@@ -38,7 +38,6 @@ struct coro_data {
  // It creates a new "result" variable to hold the value of the current coroutine data structure.
  // The current pointer to the coroutine data structure is stored in register r10
  // The address in r10 is stored by CORO_SET_SELF macro.
- // 将当前的 coro_data 结构体的指针存储在 r10 寄存器中。
 #define CORO_SELF() ({                                           \
     struct coro_data* result;                                    \
     asm volatile("l.or %[out1],r0,r10" : [out1] "=r"(result) :); \
@@ -61,7 +60,7 @@ void coro_init(void* stack, size_t stack_sz, coro_fn_t coro_fn, void* arg) {
     /* layout: coro info + stack */
     // Task stack pointer is at the top of the allocated stack (High memory address)
     uint32_t* coro_sp = (uint32_t*)((uint8_t*)stack + stack_sz); // point to top of stack, current stack pointer is at high address, which is stack top
-    coro_sp -= 12; // 假设保存了 12 个当前寄存器的值
+    coro_sp -= 12; // keep these section to store values of 12 registers
 
     /* initialize coro data */
     coro->complete = 0; // Not complete yet
@@ -73,15 +72,19 @@ void coro_init(void* stack, size_t stack_sz, coro_fn_t coro_fn, void* arg) {
     coro->caller_sp = NULL;
 
     *coro_sp = (uint32_t)coro_fn; /* LR */ 
-    // 2. (uint32_t)coro_fn是什么意思？
-    // coro_fn 是一个函数指针，类型是 coro_fn_t。
-    // (uint32_t)coro_fn 把这个函数指针强制转换成一个 32 位整数地址，也就是函数在内存中的入口地址。
-    // 然后这行代码：
-    // C*coro_sp = (uint32_t)coro_fn; /* LR */Show more lines
-    // 把这个地址写到 coro_sp 指向的位置，相当于把协程函数的地址放在栈上，模拟 ARM 架构中的 LR（Link Register），也就是返回地址寄存器。
-    // 当协程开始运行时，CPU 会“返回”到这个地址，从而跳转到 coro_fn 执行。
-    // Put this function on the top of the stack
-    // When program starts this coroutine, jump to coro_fn as if it were the return address.
+    // 2. What does (uint32_t)coro_fn mean?
+    // coro_fn is a function pointer with type coro_fn_t.
+    // (uint32_t)coro_fn casts this function pointer to a 32-bit integer address,
+    // which is the entry address of the function in memory.
+    // This line of code:
+    // *coro_sp = (uint32_t)coro_fn; /* LR */
+    // writes this address to the location pointed to by coro_sp, which is equivalent to
+    // placing the address of the coroutine function on the stack, simulating the LR (Link Register)
+    // in ARM architecture, which is the return address register.
+    // When the coroutine starts running, the CPU will "return" to this address,
+    // thereby jumping to coro_fn for execution.
+    // Put this function on the top of the stack.
+    // When the program starts this coroutine, jump to coro_fn as if it were the return address.
 }
 
 void __no_optimize coro_resume(void* p) { // Address of the coro stack
@@ -91,9 +94,11 @@ void __no_optimize coro_resume(void* p) { // Address of the coro stack
 
     struct coro_data* self = CORO_SELF(); // Get the currently executed coro
     die_if_not_f(self == NULL, "coro_resume shall not be called from a coro!");
-    // 这行代码的意思是：“只允许主程序（光杆司令）去启动协程，不允许协程自己去启动另一个协程。”
-	// 如果 self 是 0 (NULL)，说明调用者是主程序 -> 检查通过 (Pass)。
-    // 如果 self 不是 0，说明调用者是某个正在运行的协程 -> 报错 (Fail)。
+
+
+    // This line of code means: "Only the **main program** (the sole commander) is allowed to start a **coroutine**; a coroutine is **not** allowed to start another coroutine itself."
+    // If **self** is $0$ (**NULL**), it means the caller is the main program $\rightarrow$ **Check passes** (Pass).
+    // If **self** is **not** $0$, it means the caller is a currently running coroutine $\rightarrow$ **Error** (Fail).
 
     if (coro->complete)
         /* coro is complete, no need to continue */
@@ -101,8 +106,8 @@ void __no_optimize coro_resume(void* p) { // Address of the coro stack
 
     CORO_SET_SELF(coro); // Set the private coro pointer to the coro being resumed
     coro__switch(coro->coro_sp, &coro->caller_sp); // execute coro_sp = coro_func, Arg: coro->coro_sp in r3, &coro->caller_sp in r4
-    // &coro->caller_sp 存储 caller_sp (这个地址)的地址
-    CORO_SET_SELF(NULL);
+    // &coro->caller_sp, store caller_sp's address's address
+    CORO_SET_SELF(NULL); // if the corotine finishes, remove it from r10
 }
 
 void __no_optimize coro_yield() { // Gives control back to the caller of coro_resume
@@ -111,6 +116,7 @@ void __no_optimize coro_yield() { // Gives control back to the caller of coro_re
     // die if (self != NULL) not satisfy -> self != NULL should be held!
 
     coro__switch(self->caller_sp, &self->coro_sp); // Continue running main, store the current state of current subroutine
+    // Update the current stack pointer address (in R1) to coro_data, so next time when it is called, it can countinue from this point
 }
 
 void __no_optimize coro_return(void* result) {

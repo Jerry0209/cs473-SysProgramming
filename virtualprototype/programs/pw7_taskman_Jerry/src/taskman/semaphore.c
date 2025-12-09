@@ -109,5 +109,6 @@ void __no_optimize taskman_semaphore_up(struct taskman_semaphore* semaphore) {
     data.sem = semaphore;
     data.op = SEM_OP_UP;
 
-    taskman_wait(&semaphore_handler, &data); // Handler 有用于判断的工具， taskman 根据 data 判断 yield 还是 resume
+    taskman_wait(&semaphore_handler, &data); 
+    // The Handler has tools for making decisions; the Task Manager (taskman) decides whether to yield or resume based on the data.
 }

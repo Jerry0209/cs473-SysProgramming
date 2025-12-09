@@ -6,7 +6,6 @@ __global static char stack0[1024]; // Stack for the coroutine
 
 static int f(int x) {
     printf("func = %s, x = %d\n", __func__, x); // Print function name and argument
-    // __func__ 是 C 语言标准定义的一个预定义标识符，它在函数体内会被替换成当前函数的名字（类型是 const char[]）。
     coro_yield();
     return 60 + x;
 }

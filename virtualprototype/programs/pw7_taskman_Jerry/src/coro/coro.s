@@ -21,7 +21,9 @@ coro__switch:
     l.sw 0x00(r4), r1 # sw, store single word, Store current SP to old_sp pointer, content of r1 --> (EA) = (content of r4, old_sp + 0), put caller_sp, i.e. current stack pointer
     l.sw 0x00(r1), r9 # Save LR (return address), the next line after the coro__switch function
 
-    # callee-saved registers 被调用者负责储存/恢复, save to the coroutine context allocated in step 1
+    Here are a few ways to translate the comment, focusing on clarity and technical accuracy:
+
+    # Callee-saved registers are the callee's responsibility to save/restore. Save them to the coroutine context allocated in step [number/name].
     # note that we do not need to save:
     # r1 (SP), r10 (TLS)
     l.sw 0x04(r1), r2 # Save r2
@@ -71,10 +73,10 @@ coro__switch:
     l.jr r9 # Jump to restored return address
     l.addi r1, r1, 0x2C # Deallocate stack (delay slot), destroy the stack of current routine, whose register values have been restored
 
-    # 这里涉及到一个底层硬件概念：延迟槽 (Delay Slot)。
-    # OpenRISC（以及 MIPS 等架构）的流水线设计决定了：跳转指令后面紧跟的那一条指令，会在跳转真正发生“之前”（或者同时）被执行。
-    # 所以，执行顺序在物理上是这样的：
-    #    1. CPU 看到 jump 指令，开始准备起跳。
-    #    2. 趁着起跳的空隙，CPU 顺手把下一行 l.addi 给执行了。
-    #    3. CPU 落地，抵达 r9 指向的新地址。
-    # 3. 这行 addi 到底在干嘛？
+    # This involves a low-level hardware concept: the **Delay Slot**.
+    # The pipeline design of OpenRISC (and architectures like MIPS) dictates that: the instruction immediately following a jump instruction will be executed **before** (or concurrently with) the jump actually taking effect.
+    # Therefore, the physical execution order is as follows:
+    # 1. The CPU encounters the **jump** instruction and begins preparation for the jump.
+    # 2. In the gap before the jump completes, the CPU executes the following **l.addi** instruction.
+    # 3. The CPU lands, arriving at the new address pointed to by **r9**.
+    # 3. What exactly is this **addi** instruction doing?
