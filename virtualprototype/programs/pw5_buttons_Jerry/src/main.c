@@ -94,7 +94,7 @@ int main() {
   /* Enable the vga-controller's graphic mode */
   vga[0] = swap_u32(SCREEN_WIDTH);
   vga[1] = swap_u32(SCREEN_HEIGHT);
-  vga[3] = swap_u32((unsigned int)&frameBuffer[0]); // disable the vga controller by commenting this line
+  // vga[3] = swap_u32((unsigned int)&frameBuffer[0]); // disable the vga controller by commenting this line
 
 
   /* IMPORTANT: First enable interrupt generation on the switch peripheral itself */
@@ -167,23 +167,23 @@ int main() {
 
     
     /* Orignal redraw */
-    // if (redraw == 1) {
-    //   redraw = 0;
-    // drawFractal(frameBuffer);
-    // }
+    if (redraw == 1) {
+      redraw = 0;
+    drawFractal(frameBuffer);
+    }
 
     // --- TASK 2.4 MODIFICATION ---
-    if (redraw == 1) {
-      // Reset the flag
-      redraw = 0; 
+    // if (redraw == 1) {
+    //   // Reset the flag
+    //   redraw = 0; 
       
-      // Measure and print the CPU cycles used for this operation
-      // PERF_COUNTER_RUNTIME is a constant from perf.h
-      perf_print_cycles(PERF_COUNTER_RUNTIME, "irq runtime"); 
+    //   // Measure and print the CPU cycles used for this operation
+    //   // PERF_COUNTER_RUNTIME is a constant from perf.h
+    //   perf_print_cycles(PERF_COUNTER_RUNTIME, "irq runtime"); 
       
-      // Execute the fractal drawing
-      drawFractal(frameBuffer); 
-    }
+    //   // Execute the fractal drawing
+    //   drawFractal(frameBuffer); 
+    // }
     // --- TASK 2.4 MODIFICATION END ---
 
 

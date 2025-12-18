@@ -2,6 +2,12 @@
 #include <perf.h>
 #include <swap.h>
 #include <cache.h>
+#include <exception.h>
+
+/* Define your own exception handler */
+// void my_system_call_handler(void) {
+//     printf("Exception triggered: Handled by my_system_call_handler!\n");
+// }
 
 int main () {
    /* enable the caches */
@@ -12,7 +18,14 @@ int main () {
    /* initialize the performance counters */
    perf_init();
 
+
+   /* Modify the exception vectors to enable the new exception handler */
+   /* We use the EXCEPTION_SYSTEM_CALL index to target the system call vector */
+//    _vectors[EXCEPTION_SYSTEM_CALL] = my_system_call_handler;
+
    printf("Hello, world from %s (%s:%2d)!\n", __func__, __FILE__, __LINE__);
+
+//    SYSCALL(1);
 
    printf("no swap: 0x%04x, swap_u16: 0x%04x\n", 0xDEAD, swap_u16(0xDEAD));
    printf("no swap: 0x%08x, swap_u32: 0x%08x\n", 0xDEADBEEF, swap_u32(0xDEADBEEF));
